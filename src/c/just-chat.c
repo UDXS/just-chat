@@ -36,10 +36,12 @@ static int msgsCount = 0;
 //   // return s_num_messages;
 // }
 
-MessageBubble *get_message_by_id(int id) {
-  return &s_message_bubbles[id];
-}
+// MessageBubble *get_message_by_id(int id) {
+//   return &s_message_bubbles[id];
+// }
 
+
+//big thanks to @UDXS for this array / memory management code for MessageBubble!
 
 int msgs_get_idx(int idx){
 	int trueIdx = msgsTop - 1 - idx;
@@ -48,6 +50,7 @@ int msgs_get_idx(int idx){
 }
 
 MessageBubble* msgs_get(int idx){
+  printf("getting message idx %d", idx);
 	return &s_message_bubbles[msgs_get_idx(idx)];
 }
 
@@ -61,6 +64,7 @@ void msg_delete_last(){
 
 void msg_gc(int bytes){ // Garbage Collect.
 	if(bytes > MAX_MESSAGES_POOL_SIZE) {
+    printf("MAX POOL limit hit");
 		return; // Error.
 	}
 	while(msgsDataAvailable < bytes){ // Just keep deleting message entries until we have space.
@@ -69,7 +73,8 @@ void msg_gc(int bytes){ // Garbage Collect.
 }
 
 MessageBubble* msg_push(MessageBubble msg){
-	if(msg.len > MAX_MESSAGES_POOL_SIZE){ // Message too long for buffer. 
+	if(msg.len > MAX_MESSAGES_POOL_SIZE){ // Message too long for buffer.
+    printf("message too long for buffer"); 
 		return NULL; // Error.
 	}
 	msg_gc(msg.len); // Ensure there is room in the message string data buffer for this new message.
@@ -137,6 +142,7 @@ static void draw_message_bubbles(){
 
     //for each message, render a new bubble (stored in the text layers array), adjust the important bounds object, and update the scroll layer's size
     for(int index = msgsCount - 1; index >= 0; index--) {
+      // printf("index number %d in the for loop", index);
       //render the bubble for the message
       s_text_layers[index] = render_new_bubble(index, bounds);
       //adjust bounds based on the height of the bubble rendered
@@ -154,7 +160,7 @@ static void draw_message_bubbles(){
 
 //adds a new message to the messages array but does not render anything
 static void add_new_message(char *text, bool is_user){
-		msg_push((MessageBubble){text, strlen(text), is_user});
+		msg_push((MessageBubble){text, strlen(text) + 1, is_user});
 }
 
 
@@ -173,7 +179,9 @@ static void handle_transcription(char *transcription_text) {
   app_message_outbox_send();
 
   //adds the transcription to the messages array so it is displayed as a bubble. true indicates that this message is from a user
-  add_new_message(transcription_text, true);
+  char* text = malloc(strlen(transcription_text + 1));
+  strcpy(text, transcription_text);
+  add_new_message(text, true);
 
   //update the view so new message is drawn
   draw_message_bubbles();
@@ -220,7 +228,10 @@ static void in_received_handler(DictionaryIterator *iter, void *context) {
   Tuple *message_text_tuple = dict_find( iter, MessageText );
   if (message_text_tuple) {
     //if an appmessage has a ActionResponse key, read the value and add a new message. Since this is the assistant, the is_user flag is set to false
-    add_new_message(message_text_tuple->value->cstring, false);
+    char* text = malloc(strlen(message_text_tuple->value->cstring) + 1);
+    strcpy(text, message_text_tuple->value->cstring);
+    add_new_message(text, false);
+    // add_new_message(message_text_tuple->value->cstring, false);
     draw_message_bubbles();
     vibes_short_pulse();
   }
@@ -293,7 +304,7 @@ static void prv_window_load(Window *window) {
   //testing
   // add_new_message("test test test test test test test test test test test test test test test test test test ", true);
   // add_new_message("test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test ", false);
-  // draw_message_bubbles();
+  draw_message_bubbles();
 
 }
 
